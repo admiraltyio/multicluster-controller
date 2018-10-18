@@ -112,7 +112,7 @@ Build and run the manager from source:
 
 ```bash
 go get admiralty.io/multicluster-controller
-cd $GOPATH/admiralty.io/multicluster-controller
+cd $GOPATH/src/admiralty.io/multicluster-controller
 go run examples/helloworld/main.go --contexts cluster1,cluster2
 ```
 
@@ -169,7 +169,7 @@ If you cannot trust the pre-built image, you can build your own from source:
 
 ```bash
 go get admiralty.io/multicluster-controller
-cd $GOPATH/admiralty.io/multicluster-controller
+cd $GOPATH/src/admiralty.io/multicluster-controller
 docker build \
   --file examples/Dockerfile \
   --build-arg target=admiralty.io/multicluster-controller/examples/helloworld \
