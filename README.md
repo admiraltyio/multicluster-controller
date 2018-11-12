@@ -36,11 +36,11 @@ func main() {
 
   contexts := [2]string{"cluster1", "cluster2"}
   for _, cx := range contexts {
-		cfg, _, err := config.NamedConfigAndNamespace(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cl := cluster.New(ctx, cfg, cluster.Options{})
+    cfg, _, err := config.NamedConfigAndNamespace(ctx)
+    if err != nil {
+      log.Fatal(err)
+    }
+    cl := cluster.New(ctx, cfg, cluster.Options{})
     if err := co.WatchResourceReconcileObject(cl, &v1.Pod{}, controller.WatchOptions{}); err != nil {
       log.Fatal(err)
     }
