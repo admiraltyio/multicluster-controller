@@ -23,6 +23,7 @@ import (
 	"admiralty.io/multicluster-controller/examples/deploymentcopy/pkg/controller/deploymentcopy"
 	"admiralty.io/multicluster-controller/pkg/cluster"
 	"admiralty.io/multicluster-controller/pkg/manager"
+	"admiralty.io/multicluster-service-account/pkg/config"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/sample-controller/pkg/signals"
 )
@@ -34,8 +35,17 @@ func main() {
 	}
 	srcCtx, dstCtx := flag.Arg(0), flag.Arg(1)
 
-	cl1 := cluster.New(cluster.Options{Context: srcCtx, CacheOptions: cluster.CacheOptions{Namespace: "default"}})
-	cl2 := cluster.New(cluster.Options{Context: dstCtx, CacheOptions: cluster.CacheOptions{Namespace: "default"}})
+	cfg, ns, err := config.NamedConfigAndNamespace(srcCtx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cl1 := cluster.New(srcCtx, cfg, cluster.Options{CacheOptions: cluster.CacheOptions{Namespace: ns}})
+
+	cfg, ns, err = config.NamedConfigAndNamespace(dstCtx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cl2 := cluster.New(dstCtx, cfg, cluster.Options{CacheOptions: cluster.CacheOptions{Namespace: ns}})
 
 	co, err := deploymentcopy.NewController(cl1, cl2)
 	if err != nil {

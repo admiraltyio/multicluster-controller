@@ -23,6 +23,7 @@ import (
 	"admiralty.io/multicluster-controller/examples/podghost/pkg/controller/podghost"
 	"admiralty.io/multicluster-controller/pkg/cluster"
 	"admiralty.io/multicluster-controller/pkg/manager"
+	"admiralty.io/multicluster-service-account/pkg/config"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/sample-controller/pkg/signals"
 )
@@ -34,8 +35,17 @@ func main() {
 	}
 	srcCtx, dstCtx := flag.Arg(0), flag.Arg(1)
 
-	live := cluster.New(cluster.Options{Context: srcCtx})
-	ghost := cluster.New(cluster.Options{Context: dstCtx})
+	cfg, _, err := config.NamedConfigAndNamespace(srcCtx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	live := cluster.New(srcCtx, cfg, cluster.Options{})
+
+	cfg, _, err = config.NamedConfigAndNamespace(dstCtx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ghost := cluster.New(dstCtx, cfg, cluster.Options{})
 
 	co, err := podghost.NewController(live, ghost, "default")
 	if err != nil {

@@ -26,6 +26,7 @@ import (
   "admiralty.io/multicluster-controller/pkg/controller"
   "admiralty.io/multicluster-controller/pkg/manager"
   "admiralty.io/multicluster-controller/pkg/reconcile"
+  "admiralty.io/multicluster-service-account/pkg/config"
   "k8s.io/api/core/v1"
   "k8s.io/sample-controller/pkg/signals"
 )
@@ -35,7 +36,11 @@ func main() {
 
   contexts := [2]string{"cluster1", "cluster2"}
   for _, cx := range contexts {
-    cl := cluster.New(cluster.Options{Context: cx})
+		cfg, _, err := config.NamedConfigAndNamespace(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cl := cluster.New(ctx, cfg, cluster.Options{})
     if err := co.WatchResourceReconcileObject(cl, &v1.Pod{}, controller.WatchOptions{}); err != nil {
       log.Fatal(err)
     }
@@ -57,9 +62,10 @@ func (r *reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 }
 ```
 
-1. Multicluster-controller uses kubeconfig contexts to _connect_ to multiple clusters. It also uses context names to _identify_ clusters, because Kubernetes clusters are unaware of their names at the moment; even though apimachinery's `ObjectMeta` struct has a `ClusterName` field, it ["is not set anywhere right now and apiserver is going to ignore it if set in create or update request."](https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta)
-1. A `Cluster` struct is created for each context. `Cluster`s hold references to cluster-scoped dependencies: clients, caches, etc. (In controller-runtime, the `Manager` holds a unique set of those.)
-1. A `Controller` struct is created, and configured to watch the Pod resource in each cluster. Internally, on each pod event, a reconcile `Request`, which consists of the context, namespace, and name of the pod, is added to the `Controller`'s [workqueue](https://godoc.org/k8s.io/client-go/util/workqueue).
+1. `Cluster`s have arbitrary names. Indeed, Kubernetes clusters are unaware of their names at the moment—apimachinery's `ObjectMeta` struct has a `ClusterName` field, but it ["is not set anywhere right now and apiserver is going to ignore it if set in create or update request."](https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta)
+1. `Cluster`s are configured using regular [client-go](https://github.com/kubernetes/client-go) [rest.Config](https://godoc.org/k8s.io/client-go/rest#Config) structs. They can be created, for example, from [kubeconfig files](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) or [service account imports](https://admiralty.io/blog/introducing-multicluster-service-account/). We recommend using the [config](https://godoc.org/admiralty.io/multicluster-service-account/pkg/config) package of [multicluster-service-account](https://github.com/admiraltyio/multicluster-service-account) in either case.
+1. A `Cluster` struct is created for each kubeconfig context and/or service account import. `Cluster`s hold references to cluster-scoped dependencies: clients, caches, etc. (In controller-runtime, the `Manager` holds a unique set of those.)
+1. A `Controller` struct is created, and configured to watch the Pod resource in each cluster. Internally, on each pod event, a reconcile `Request`, which consists of the cluster name, namespace, and name of the pod, is added to the `Controller`'s [workqueue](https://godoc.org/k8s.io/client-go/util/workqueue).
 1. `Request`s are to be processed asynchronously by the `Controller`'s `Reconciler`, whose level-based logic is provided by the user (e.g., create controlled objects, call other services).
 1. Finally, a `Manager` is created, and the `Controller` is added to it. In multicluster-controller, the `Manager`'s only responsibilities are to start the `Cluster`s' caches, wait for them to sync, then start the `Controller`s. (The `Manager` knows about the caches from the `Controller`s.)
 
@@ -78,7 +84,7 @@ kubectl cluster-info --context cluster1
 kubectl cluster-info --context cluster2
 ```
 
-Note: In production, you wouldn't use your user kubeconfig. Instead, you would generate one, either for Kubernetes Service Accounts defined in the clusters, or for a different Kubernetes user, corresponding to a service account in your independent identity system; see below, [Configuration](#configuration).
+Note: In production, you wouldn't use your user kubeconfig. Instead, we recommend [multicluster-service-account](https://admiralty.io/blog/introducing-multicluster-service-account/).
 
 If running the manager out-of-cluster, both clusters must be accessible from your machine; in-cluster, assuming you run the manager in cluster1, cluster2 must be accessible from cluster1, or if you run the manager in a third cluster, cluster1 and cluster2 must be accessible from cluster3.
 
@@ -213,7 +219,7 @@ Note: Cross-cluster garbage collection is still in the works, so we must delete 
 To run `deploymentcopy` out-of-cluster:
 
 ```bash
-go run examples/deployment/cmd/manager/main.go cluster1 cluster2
+go run examples/deploymentcopy/cmd/manager/main.go cluster1 cluster2
 ```
 
 #### podghost
@@ -223,7 +229,7 @@ The `podghost` example's reconciliation logic is similar to `deploymentcopy`'s, 
 The PodGhost custom resource definition (CRD) must be created in "cluster2" before running the manager:
 
 ```bash
-kubectl create -f examples/podghost/config/crd.yaml \
+kubectl create -f examples/podghost/kustomize/crd.yaml \
   --context cluster2
 ```
 
@@ -232,24 +238,6 @@ Then, out-of-cluster:
 ```bash
 go run examples/podghost/cmd/manager/main.go cluster1 cluster2
 ```
-
-## Configuration
-
-For now, multicluster-reconciler requires a kubeconfig file, even when run in-cluster. Indeed, the only cluster known to a pod's service account is the cluster the pod runs in. To connect to multiple clusters, multicluster-reconciler leverages the kubeconfig contexts. The kubeconfig file is loaded the usual way:
-- **out of cluster**, client-go expects to find it at `$HOME/.kube/config` by default, unless told otherwise using the `--kubeconfig` option or the `KUBECONFIG` environment variable;
-- **in-cluster**, `--kubeconfig` or `KUBECONFIG` _must_ be used (otherwise client-go would use the pod service account).
-
-In the [Getting Started](#getting-started) guide, we simply used the user's kubeconfig. That was a hack for two reasons:
-1. in production, you'd probably want **different permissions** (RBAC);
-1. with OIDC authentication (e.g., GKE by default, or AKS with AD integration), the **cached token would eventually expire** and the manager would stop working.
-
-You should therefore generate a kubeconfig for:
-- either a Kubernetes Service Account in each cluster,
-- or a Kubernetes User (which could correspond to a "service account" in your company's identity system) given proper access in each cluster.
-
-For now, this is left as an exercise to the reader; the [Kubernetes documentation](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) is a good starting point. [TODO: provide guidance]
-
-Note: An integration with [cluster-registry](https://github.com/kubernetes/cluster-registry) is under consideration.
 
 ## Usage with Custom Resources
 

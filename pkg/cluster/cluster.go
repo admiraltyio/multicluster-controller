@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	clientgocache "k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -35,7 +34,8 @@ import (
 // Cluster stores a Kubernetes client, cache, and other cluster-scoped dependencies.
 // The dependencies are lazily created in getters and cached for reuse.
 type Cluster struct {
-	config *rest.Config
+	Name   string
+	Config *rest.Config
 	scheme *runtime.Scheme
 	mapper meta.RESTMapper
 	cache  cache.Cache
@@ -44,9 +44,8 @@ type Cluster struct {
 }
 
 // Options is used as an argument of New.
+// For now it only embeds CacheOptions but we could add non-cache options in the future.
 type Options struct {
-	// Context is the context in the kubeconfig that corresponds to this Cluster.
-	Context string
 	CacheOptions
 }
 
@@ -62,34 +61,13 @@ type CacheOptions struct {
 }
 
 // New creates a new Cluster.
-func New(o Options) *Cluster {
-	return &Cluster{Options: o}
+func New(name string, config *rest.Config, o Options) *Cluster {
+	return &Cluster{Name: name, Config: config, Options: o}
 }
 
-// GetContext returns the context given when Cluster c was created.
-func (c *Cluster) GetContext() string {
-	return c.Context
-}
-
-// GetConfig returns a lazily created client-go Config.
-// It is used by other Cluster getters. TODO: consider not exporting.
-func (c *Cluster) GetConfig() (*rest.Config, error) {
-	if c.config != nil {
-		return c.config, nil
-	}
-
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	overrides := &clientcmd.ConfigOverrides{}
-	if c.Context != "" {
-		overrides.CurrentContext = c.Context
-	}
-	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides).ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	c.config = cfg
-	return cfg, nil
+// GetClusterName returns the context given when Cluster c was created.
+func (c *Cluster) GetClusterName() string {
+	return c.Name
 }
 
 // GetScheme returns the default client-go scheme.
@@ -105,18 +83,13 @@ func (c *Cluster) GetMapper() (meta.RESTMapper, error) {
 		return c.mapper, nil
 	}
 
-	cfg, err := c.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	mapper, err := apiutil.NewDiscoveryRESTMapper(cfg)
+	mapper, err := apiutil.NewDiscoveryRESTMapper(c.Config)
 	if err != nil {
 		return nil, err
 	}
 
 	c.mapper = mapper
-	return nil, nil
+	return mapper, nil
 }
 
 // GetCache returns a lazily created controller-runtime Cache.
@@ -126,17 +99,12 @@ func (c *Cluster) GetCache() (cache.Cache, error) {
 		return c.cache, nil
 	}
 
-	cfg, err := c.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-
 	m, err := c.GetMapper()
 	if err != nil {
 		return nil, err
 	}
 
-	ca, err := cache.New(cfg, cache.Options{
+	ca, err := cache.New(c.Config, cache.Options{
 		Scheme:    c.GetScheme(),
 		Mapper:    m,
 		Resync:    c.Resync,
@@ -164,17 +132,12 @@ func (c *Cluster) GetDelegatingClient() (*client.DelegatingClient, error) {
 		return nil, err
 	}
 
-	cfg, err := c.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-
 	m, err := c.GetMapper()
 	if err != nil {
 		return nil, err
 	}
 
-	cl, err := client.New(cfg, client.Options{
+	cl, err := client.New(c.Config, client.Options{
 		Scheme: c.GetScheme(),
 		Mapper: m,
 	})

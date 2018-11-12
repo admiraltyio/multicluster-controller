@@ -57,7 +57,7 @@ type Options struct {
 
 // Cluster decouples the controller package from the cluster package.
 type Cluster interface {
-	GetContext() string
+	GetClusterName() string
 	AddEventHandler(runtime.Object, cache.ResourceEventHandler) error
 	manager.Cache
 }
@@ -99,7 +99,7 @@ type WatchOptions struct {
 // and the watched objects' namespaces and names.
 func (c *Controller) WatchResourceReconcileObject(cluster Cluster, objectType runtime.Object, o WatchOptions) error {
 	c.clusters[cluster] = struct{}{}
-	h := &handler.EnqueueRequestForObject{Context: cluster.GetContext(), Queue: c.Queue}
+	h := &handler.EnqueueRequestForObject{Context: cluster.GetClusterName(), Queue: c.Queue}
 	return cluster.AddEventHandler(objectType, h)
 }
 
@@ -108,7 +108,7 @@ func (c *Controller) WatchResourceReconcileObject(cluster Cluster, objectType ru
 // and the namespaces and names of the watched objects' controller references.
 func (c *Controller) WatchResourceReconcileController(cluster Cluster, objectType runtime.Object, o WatchOptions) error {
 	c.clusters[cluster] = struct{}{}
-	h := &handler.EnqueueRequestForController{Context: cluster.GetContext(), Queue: c.Queue}
+	h := &handler.EnqueueRequestForController{Context: cluster.GetClusterName(), Queue: c.Queue}
 	return cluster.AddEventHandler(objectType, h)
 }
 

@@ -25,6 +25,7 @@ import (
 	"admiralty.io/multicluster-controller/pkg/controller"
 	"admiralty.io/multicluster-controller/pkg/manager"
 	"admiralty.io/multicluster-controller/pkg/reconcile"
+	"admiralty.io/multicluster-service-account/pkg/config"
 	"k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/sample-controller/pkg/signals"
@@ -38,7 +39,11 @@ func main() {
 	co := controller.New(&reconciler{}, controller.Options{})
 
 	for _, ctx := range ctxs {
-		cl := cluster.New(cluster.Options{Context: ctx})
+		cfg, _, err := config.NamedConfigAndNamespace(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cl := cluster.New(ctx, cfg, cluster.Options{})
 		if err := co.WatchResourceReconcileObject(cl, &v1.Pod{}, controller.WatchOptions{}); err != nil {
 			log.Fatal(err)
 		}
