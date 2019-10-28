@@ -22,11 +22,16 @@ import (
 )
 
 type EnqueueRequestForObject struct {
-	Context string
-	Queue   Queue
+	Context   string
+	Queue     Queue
+	Predicate func(obj interface{}) bool
 }
 
 func (e *EnqueueRequestForObject) enqueue(obj interface{}) {
+	if !e.Predicate(obj) {
+		return
+	}
+
 	o, err := meta.Accessor(obj)
 	if err != nil {
 		return
