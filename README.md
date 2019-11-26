@@ -212,9 +212,11 @@ However, only three reconcile requests were processed. Indeed, the requests were
 
 The `deploymentcopy` example filters events, watching only the default namespace. Also, it implements an actual reconciliation loop, following the common pattern illustrated in the figure below, where the controller object is an original Deployment in cluster1, and the controlled onject is a copy in cluster2.
 
-Note: Cross-cluster garbage collection is still in the works, so we must delete the controlled object when the controller has disappeared.
-
 ![controller logic](doc/controller-logic.svg)
+
+~~Note: Cross-cluster garbage collection is still in the works, so we must delete the controlled object when the controller has disappeared.~~ Cross-cluster garbage collection has been [extracted into a reusable pattern](https://github.com/admiraltyio/multicluster-controller/blob/master/pkg/patterns/gc/gc.go), but we still need to update the examples.
+
+![cross-cluster garbage collection with finalizers](doc/gc.png)
 
 To run `deploymentcopy` out-of-cluster:
 
