@@ -1,0 +1,52 @@
+module admiralty.io/multicluster-controller
+
+go 1.12
+
+require (
+	admiralty.io/multicluster-service-account v0.1.0
+	cloud.google.com/go v0.28.0
+	github.com/davecgh/go-spew v1.1.1
+	github.com/ghodss/yaml v1.0.0
+	github.com/go-logr/logr v0.1.0
+	github.com/go-logr/zapr v0.1.0
+	github.com/gogo/protobuf v1.1.1
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff
+	github.com/golang/protobuf v1.2.0
+	github.com/google/btree v1.0.0
+	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf
+	github.com/google/uuid v1.0.0
+	github.com/googleapis/gnostic v0.2.0
+	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7
+	github.com/hashicorp/golang-lru v0.5.0
+	github.com/imdario/mergo v0.3.6
+	github.com/json-iterator/go v1.1.5
+	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
+	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709
+	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c
+	github.com/peterbourgon/diskv v2.0.1+incompatible
+	github.com/spf13/pflag v1.0.2
+	go.uber.org/atomic v1.3.2
+	go.uber.org/multierr v1.1.0
+	go.uber.org/zap v1.9.1
+	golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b
+	golang.org/x/net v0.0.0-20180926154720-4dfa2610cdf3
+	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
+	golang.org/x/sys v0.0.0-20180926160741-c2ed4eda69e7
+	golang.org/x/text v0.3.0
+	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
+	golang.org/x/tools v0.0.0-20181010214653-38981630ecb4
+	google.golang.org/appengine v1.2.0
+	gopkg.in/inf.v0 v0.9.1
+	gopkg.in/yaml.v2 v2.2.1
+	k8s.io/api v0.0.0-20180712090710-2d6f90ab1293
+	k8s.io/apimachinery v0.0.0-20180621070125-103fd098999d
+	k8s.io/client-go v0.0.0-20180806134042-1f13a808da65
+	k8s.io/code-generator v0.0.0-20181009084210-b36598f30652
+	k8s.io/gengo v0.0.0-20180813235010-4242d8e6c5db
+	k8s.io/kube-openapi v0.0.0-20181109181836-c59034cc13d5
+	k8s.io/sample-controller v0.0.0-20180926075748-b8a1e69103ae
+	sigs.k8s.io/controller-runtime v0.1.4
+)
