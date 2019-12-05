@@ -6,6 +6,7 @@ import (
 
 	"admiralty.io/multicluster-controller/pkg/cluster"
 	"admiralty.io/multicluster-controller/pkg/controller"
+	"admiralty.io/multicluster-controller/pkg/patterns"
 	"admiralty.io/multicluster-controller/pkg/reconcile"
 	"admiralty.io/multicluster-controller/pkg/reference"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -92,7 +93,7 @@ type reconciler struct {
 	parentClient      client.Client
 	childClient       client.Client
 	isMulticluster    bool
-	parentClusterName string // used for owner refs and error msgs, empty for single-cluster, cross-namespace use case
+	parentClusterName string // used for owner refs and error msgs
 	childClusterName  string // only used for error messages
 	parentGVK         schema.GroupVersionKind
 	childGVK          schema.GroupVersionKind
@@ -166,7 +167,7 @@ func (r *reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 		} else if parentHasFinalizer {
 			// remove finalizer
 			parentMeta.SetFinalizers(append(finalizers[:j], finalizers[j+1:]...))
-			if err := r.parentClient.Update(context.Background(), parent); err != nil {
+			if err := r.parentClient.Update(context.Background(), parent); err != nil && !patterns.IsOptimisticLockError(err) {
 				return reconcile.Result{}, fmt.Errorf("cannot remove finalizer from %s: %v",
 					r.parentObjectErrorString(parentMeta.GetName(), parentMeta.GetNamespace()), err)
 			}
@@ -174,7 +175,7 @@ func (r *reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 	} else {
 		if !parentHasFinalizer {
 			parentMeta.SetFinalizers(append(finalizers, "multicluster.admiralty.io/multiclusterForegroundDeletion"))
-			if err := r.parentClient.Update(context.Background(), parent); err != nil {
+			if err := r.parentClient.Update(context.Background(), parent); err != nil && !patterns.IsOptimisticLockError(err) {
 				return reconcile.Result{}, fmt.Errorf("cannot add finalizer to %s: %v",
 					r.parentObjectErrorString(parentMeta.GetName(), parentMeta.GetNamespace()), err)
 			}
@@ -201,7 +202,7 @@ func (r *reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 						return reconcile.Result{}, fmt.Errorf("cannot mutate %s: %v",
 							r.childObjectErrorString(childMeta.GetName(), childMeta.GetNamespace()), err)
 					}
-					if err := r.childClient.Update(context.Background(), child); err != nil {
+					if err := r.childClient.Update(context.Background(), child); err != nil && !patterns.IsOptimisticLockError(err) {
 						return reconcile.Result{}, fmt.Errorf("cannot update %s: %v",
 							r.childObjectErrorString(childMeta.GetName(), childMeta.GetNamespace()), err)
 					}

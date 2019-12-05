@@ -6,6 +6,7 @@ import (
 
 	"admiralty.io/multicluster-controller/pkg/cluster"
 	"admiralty.io/multicluster-controller/pkg/controller"
+	"admiralty.io/multicluster-controller/pkg/patterns"
 	"admiralty.io/multicluster-controller/pkg/reconcile"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,15 +68,18 @@ func (r *reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) 
 			r.objectErrorString(req.Name, req.Namespace), err)
 	}
 
-	if needUpdate {
-		if err := r.applier.Mutate(obj); err != nil {
-			return reconcile.Result{}, fmt.Errorf("cannot mutate %s: %v",
-				r.objectErrorString(req.Name, req.Namespace), err)
-		}
-		if err := r.client.Update(context.Background(), obj); err != nil {
-			return reconcile.Result{}, fmt.Errorf("cannot update %s: %v",
-				r.objectErrorString(req.Name, req.Namespace), err)
-		}
+	if !needUpdate {
+		return reconcile.Result{}, nil
+	}
+
+	if err := r.applier.Mutate(obj); err != nil {
+		return reconcile.Result{}, fmt.Errorf("cannot mutate %s: %v",
+			r.objectErrorString(req.Name, req.Namespace), err)
+	}
+
+	if err := r.client.Update(context.Background(), obj); err != nil && !patterns.IsOptimisticLockError(err) {
+		return reconcile.Result{}, fmt.Errorf("cannot update %s: %v",
+			r.objectErrorString(req.Name, req.Namespace), err)
 	}
 
 	return reconcile.Result{}, nil
