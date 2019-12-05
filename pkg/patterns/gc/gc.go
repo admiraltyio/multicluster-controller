@@ -112,6 +112,12 @@ func (r *reconciler) defaultMakeSelector(parent interface{}) labels.Set {
 }
 
 func (r *reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) {
+	// filter out requests enqueued for children whose parents are in a different cluster
+	// TODO move this upstream to an option or variation of WatchResourceReconcileController
+	if req.Context != r.parentClusterName {
+		return reconcile.Result{}, nil
+	}
+
 	parent := r.ParentPrototype.DeepCopyObject()
 	child := r.ChildPrototype.DeepCopyObject()
 	expectedChild := r.ChildPrototype.DeepCopyObject()
