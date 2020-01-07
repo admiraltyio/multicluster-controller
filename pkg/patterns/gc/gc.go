@@ -218,7 +218,7 @@ func (r *reconciler) getChild(parent runtime.Object, child runtime.Object) error
 	childList := &unstructured.UnstructuredList{}
 	childList.SetGroupVersionKind(r.childGVK)
 	s := labels.SelectorFromValidatedSet(r.MakeSelector(parent))
-	err := r.childClient.List(context.Background(), &client.ListOptions{Namespace: r.ChildNamespace, LabelSelector: s}, childList)
+	err := r.childClient.List(context.Background(), childList, client.InNamespace(r.ChildNamespace), client.MatchingLabelsSelector{Selector: s})
 	if err != nil {
 		return fmt.Errorf("cannot list %s with label selector %s: %v", r.childResourceErrorString(), s, err)
 	}
