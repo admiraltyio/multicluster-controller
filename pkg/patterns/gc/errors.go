@@ -2,43 +2,36 @@ package gc
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (r *reconciler) parentResourceErrorString() string {
-	inCluster := ""
-	if r.isMulticluster {
-		inCluster = fmt.Sprintf(" in cluster %s", r.parentClusterName)
-	}
-	return "parent resource " + r.parentGVK.Kind + inCluster
+func (r *reconciler) parentResourceErrorString(clusterName string) string {
+	return fmt.Sprintf("parent resource %s in cluster %s", r.parentGVK.Kind, clusterName)
 }
 
-func (r *reconciler) childResourceErrorString() string {
+func (r *reconciler) childResourceErrorString(clusterName string) string {
 	inNS := ""
 	if r.ChildNamespace != "" {
 		inNS = fmt.Sprintf(" in namespace %s", r.ChildNamespace)
 	}
-	inCluster := ""
-	if r.isMulticluster {
-		inCluster = fmt.Sprintf(" in cluster %s", r.childClusterName)
-	}
-	return "child resource " + r.childGVK.Kind + inNS + inCluster
+	return fmt.Sprintf("child resource %s%s in cluster %s", r.childGVK.Kind, inNS, clusterName)
 }
 
-func (r *reconciler) parentObjectErrorString(name string, namespace string) string {
-	inCluster := ""
-	if r.isMulticluster {
-		inCluster = fmt.Sprintf(" in cluster %s", r.parentClusterName)
+func (r *reconciler) parentObjectErrorString(name, namespace, clusterName string) string {
+	inNS := ""
+	if namespace != "" {
+		inNS = fmt.Sprintf(" in namespace %s", namespace)
 	}
-	return fmt.Sprintf("parent object %s %s in namespace %s%s", r.parentGVK.Kind, name, namespace, inCluster)
+	return fmt.Sprintf("parent object %s %s%s in cluster %s", r.parentGVK.Kind, name, inNS, clusterName)
 }
 
-func (r *reconciler) childObjectErrorString(name string, namespace string) string {
-	inCluster := ""
-	if r.isMulticluster {
-		inCluster = fmt.Sprintf(" in cluster %s", r.childClusterName)
+func (r *reconciler) childObjectErrorString(name, namespace, clusterName string) string {
+	inNS := ""
+	if namespace != "" {
+		inNS = fmt.Sprintf(" in namespace %s", namespace)
 	}
-	return fmt.Sprintf("child object %s %s in namespace %s%s", r.childGVK.Kind, name, namespace, inCluster)
+	return fmt.Sprintf("child object %s %s%s in cluster %s", r.childGVK.Kind, name, inNS, clusterName)
 }
 
 type childNotFoundErr struct {
@@ -49,9 +42,9 @@ func (e *childNotFoundErr) Error() string {
 	return e.s
 }
 
-func (r *reconciler) ChildNotFoundErr(s labels.Selector) error {
+func (r *reconciler) ChildNotFoundErr(clusterName string, s labels.Selector) error {
 	return &childNotFoundErr{s: fmt.Sprintf("%s not found with label selector %s",
-		r.childResourceErrorString(), s)}
+		r.childResourceErrorString(clusterName), s)}
 }
 
 func IsChildNotFoundErr(err error) bool {
@@ -67,9 +60,9 @@ func (e *duplicateChildErr) Error() string {
 	return e.s
 }
 
-func (r *reconciler) DuplicateChildErr(s labels.Selector) error {
+func (r *reconciler) DuplicateChildErr(clusterName string, s labels.Selector) error {
 	return &duplicateChildErr{s: fmt.Sprintf("duplicate %s found with label selector %s",
-		r.childResourceErrorString(), s)}
+		r.childResourceErrorString(clusterName), s)}
 }
 
 func IsDuplicateChildErr(err error) bool {
