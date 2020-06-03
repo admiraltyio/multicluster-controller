@@ -17,18 +17,27 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
+
+	"admiralty.io/multicluster-service-account/pkg/config"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/sample-controller/pkg/signals"
 
 	"admiralty.io/multicluster-controller/examples/podghost/pkg/controller/podghost"
 	"admiralty.io/multicluster-controller/pkg/cluster"
 	"admiralty.io/multicluster-controller/pkg/manager"
-	"admiralty.io/multicluster-service-account/pkg/config"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/sample-controller/pkg/signals"
 )
 
 func main() {
+	stopCh := signals.SetupSignalHandler()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-stopCh
+		cancel()
+	}()
+
 	flag.Parse()
 	if flag.NArg() != 2 {
 		log.Fatalf("Usage: deploymentcopy sourcecontext destinationcontext")
@@ -47,7 +56,7 @@ func main() {
 	}
 	ghost := cluster.New(dstCtx, cfg, cluster.Options{})
 
-	co, err := podghost.NewController(live, ghost, "default")
+	co, err := podghost.NewController(ctx, live, ghost, "default")
 	if err != nil {
 		log.Fatalf("creating podghost controller: %v", err)
 	}

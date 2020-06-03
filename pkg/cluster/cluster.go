@@ -19,6 +19,7 @@ limitations under the License.
 package cluster // import "admiralty.io/multicluster-controller/pkg/cluster"
 
 import (
+	"context"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -160,13 +161,13 @@ func (c *Cluster) GetDelegatingClient() (*client.DelegatingClient, error) {
 
 // AddEventHandler instructs the Cluster's cache to watch objectType's resource,
 // if it doesn't already, and to add handler as an event handler.
-func (c *Cluster) AddEventHandler(objectType runtime.Object, handler clientgocache.ResourceEventHandler) error {
+func (c *Cluster) AddEventHandler(ctx context.Context, objectType runtime.Object, handler clientgocache.ResourceEventHandler) error {
 	ca, err := c.GetCache()
 	if err != nil {
 		return err
 	}
 
-	i, err := ca.GetInformer(objectType)
+	i, err := ca.GetInformer(ctx, objectType)
 	if err != nil {
 		return err
 	}

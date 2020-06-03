@@ -17,10 +17,11 @@ limitations under the License.
 package handler // import "admiralty.io/multicluster-controller/pkg/handler"
 
 import (
-	"admiralty.io/multicluster-controller/pkg/reconcile"
-	"admiralty.io/multicluster-controller/pkg/reference"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"admiralty.io/multicluster-controller/pkg/reconcile"
+	"admiralty.io/multicluster-controller/pkg/reference"
 )
 
 type EnqueueRequestForController struct {

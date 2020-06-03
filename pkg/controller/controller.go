@@ -18,19 +18,21 @@ limitations under the License.
 package controller // import "admiralty.io/multicluster-controller/pkg/controller"
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
 
-	"admiralty.io/multicluster-controller/pkg/handler"
-	"admiralty.io/multicluster-controller/pkg/manager"
-	"admiralty.io/multicluster-controller/pkg/reconcile"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	"admiralty.io/multicluster-controller/pkg/handler"
+	"admiralty.io/multicluster-controller/pkg/manager"
+	"admiralty.io/multicluster-controller/pkg/reconcile"
 )
 
 // Controller implements the controller pattern.
@@ -60,7 +62,7 @@ type Options struct {
 // Cluster decouples the controller package from the cluster package.
 type Cluster interface {
 	GetClusterName() string
-	AddEventHandler(runtime.Object, cache.ResourceEventHandler) error
+	AddEventHandler(context.Context, runtime.Object, cache.ResourceEventHandler) error
 	manager.Cache
 }
 
@@ -99,7 +101,6 @@ type WatchOptions struct {
 	LabelSelector      labels.Selector
 	AnnotationSelector labels.Selector
 	CustomPredicate    func(obj interface{}) bool
-	KeyFilter          func()
 }
 
 func (o WatchOptions) Predicate(obj interface{}) bool {
@@ -145,32 +146,32 @@ func (o WatchOptions) Predicate(obj interface{}) bool {
 // WatchResourceReconcileObject configures the Controller to watch resources of the same Kind as objectType,
 // in the specified cluster, generating reconcile Requests from the Cluster's context
 // and the watched objects' namespaces and names.
-func (c *Controller) WatchResourceReconcileObject(cluster Cluster, objectType runtime.Object, o WatchOptions) error {
+func (c *Controller) WatchResourceReconcileObject(ctx context.Context, cluster Cluster, objectType runtime.Object, o WatchOptions) error {
 	h := &handler.EnqueueRequestForObject{Context: cluster.GetClusterName(), Queue: c.Queue, Predicate: o.Predicate}
-	return c.WatchResource(cluster, objectType, h)
+	return c.WatchResource(ctx, cluster, objectType, h)
 }
 
 // WatchResourceReconcileObjectOverrideContext configures the Controller to watch resources of the same Kind as objectType,
 // in the specified cluster, generating reconcile Requests from the watched objects' namespaces and names
 // with the specified context override. This is useful when you want to reuse a Cluster with different names.
-func (c *Controller) WatchResourceReconcileObjectOverrideContext(cluster Cluster, objectType runtime.Object, o WatchOptions, contextOverride string) error {
+func (c *Controller) WatchResourceReconcileObjectOverrideContext(ctx context.Context, cluster Cluster, objectType runtime.Object, o WatchOptions, contextOverride string) error {
 	h := &handler.EnqueueRequestForObject{Context: contextOverride, Queue: c.Queue, Predicate: o.Predicate}
-	return c.WatchResource(cluster, objectType, h)
+	return c.WatchResource(ctx, cluster, objectType, h)
 }
 
 // WatchResourceReconcileController configures the Controller to watch resources of the same Kind as objectType,
 // in the specified cluster, generating reconcile Requests from the Cluster's context
 // and the namespaces and names of the watched objects' controller references.
-func (c *Controller) WatchResourceReconcileController(cluster Cluster, objectType runtime.Object, o WatchOptions) error {
+func (c *Controller) WatchResourceReconcileController(ctx context.Context, cluster Cluster, objectType runtime.Object, o WatchOptions) error {
 	h := &handler.EnqueueRequestForController{Context: cluster.GetClusterName(), Queue: c.Queue, Predicate: o.Predicate}
-	return c.WatchResource(cluster, objectType, h)
+	return c.WatchResource(ctx, cluster, objectType, h)
 }
 
 // WatchResource configures the Controller to watch resources of the same Kind as objectType,
 // in the specified cluster, generating reconcile Requests an arbitrary ResourceEventHandler.
-func (c *Controller) WatchResource(cluster Cluster, objectType runtime.Object, h cache.ResourceEventHandler) error {
+func (c *Controller) WatchResource(ctx context.Context, cluster Cluster, objectType runtime.Object, h cache.ResourceEventHandler) error {
 	c.clusters[cluster] = struct{}{}
-	return cluster.AddEventHandler(objectType, h)
+	return cluster.AddEventHandler(ctx, objectType, h)
 }
 
 // TODO: watch channel

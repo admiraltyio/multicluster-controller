@@ -17,34 +17,43 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"strings"
+
+	"admiralty.io/multicluster-service-account/pkg/config"
+	"k8s.io/api/core/v1"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/sample-controller/pkg/signals"
 
 	"admiralty.io/multicluster-controller/pkg/cluster"
 	"admiralty.io/multicluster-controller/pkg/controller"
 	"admiralty.io/multicluster-controller/pkg/manager"
 	"admiralty.io/multicluster-controller/pkg/reconcile"
-	"admiralty.io/multicluster-service-account/pkg/config"
-	"k8s.io/api/core/v1"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/sample-controller/pkg/signals"
 )
 
 func main() {
+	stopCh := signals.SetupSignalHandler()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-stopCh
+		cancel()
+	}()
+
 	var f = flag.String("contexts", "", "a comma-separated list of contexts to watch, e.g., cluster1,cluster2")
 	flag.Parse()
-	ctxs := strings.Split(*f, ",")
+	kubeCtxs := strings.Split(*f, ",")
 
 	co := controller.New(&reconciler{}, controller.Options{})
 
-	for _, ctx := range ctxs {
-		cfg, _, err := config.NamedConfigAndNamespace(ctx)
+	for _, kubeCtx := range kubeCtxs {
+		cfg, _, err := config.NamedConfigAndNamespace(kubeCtx)
 		if err != nil {
 			log.Fatal(err)
 		}
-		cl := cluster.New(ctx, cfg, cluster.Options{})
-		if err := co.WatchResourceReconcileObject(cl, &v1.Pod{}, controller.WatchOptions{}); err != nil {
+		cl := cluster.New(kubeCtx, cfg, cluster.Options{})
+		if err := co.WatchResourceReconcileObject(ctx, cl, &v1.Pod{}, controller.WatchOptions{}); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -52,7 +61,7 @@ func main() {
 	m := manager.New()
 	m.AddController(co)
 
-	if err := m.Start(signals.SetupSignalHandler()); err != nil {
+	if err := m.Start(stopCh); err != nil {
 		log.Fatal(err)
 	}
 }

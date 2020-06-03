@@ -21,19 +21,19 @@ import (
 	"fmt"
 	"reflect"
 
-	"admiralty.io/multicluster-controller/pkg/reference"
-
-	"admiralty.io/multicluster-controller/pkg/cluster"
-	"admiralty.io/multicluster-controller/pkg/controller"
-	"admiralty.io/multicluster-controller/pkg/reconcile"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"admiralty.io/multicluster-controller/pkg/cluster"
+	"admiralty.io/multicluster-controller/pkg/controller"
+	"admiralty.io/multicluster-controller/pkg/reconcile"
+	"admiralty.io/multicluster-controller/pkg/reference"
 )
 
-func NewController(src *cluster.Cluster, dst *cluster.Cluster) (*controller.Controller, error) {
+func NewController(ctx context.Context, src *cluster.Cluster, dst *cluster.Cluster) (*controller.Controller, error) {
 	srcClient, err := src.GetDelegatingClient()
 	if err != nil {
 		return nil, fmt.Errorf("getting delegating client for source cluster: %v", err)
@@ -45,10 +45,10 @@ func NewController(src *cluster.Cluster, dst *cluster.Cluster) (*controller.Cont
 
 	co := controller.New(&reconciler{source: srcClient, destination: dstClient}, controller.Options{})
 
-	if err := co.WatchResourceReconcileObject(src, &appsv1.Deployment{}, controller.WatchOptions{}); err != nil {
+	if err := co.WatchResourceReconcileObject(ctx, src, &appsv1.Deployment{}, controller.WatchOptions{}); err != nil {
 		return nil, fmt.Errorf("setting up Deployment watch in source cluster: %v", err)
 	}
-	if err := co.WatchResourceReconcileController(dst, &appsv1.Deployment{}, controller.WatchOptions{}); err != nil {
+	if err := co.WatchResourceReconcileController(ctx, dst, &appsv1.Deployment{}, controller.WatchOptions{}); err != nil {
 		return nil, fmt.Errorf("setting up Deployment watch in destination cluster: %v", err)
 	}
 

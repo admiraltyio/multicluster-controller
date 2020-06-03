@@ -17,18 +17,27 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
+
+	"admiralty.io/multicluster-service-account/pkg/config"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/sample-controller/pkg/signals"
 
 	"admiralty.io/multicluster-controller/examples/deploymentcopy/pkg/controller/deploymentcopy"
 	"admiralty.io/multicluster-controller/pkg/cluster"
 	"admiralty.io/multicluster-controller/pkg/manager"
-	"admiralty.io/multicluster-service-account/pkg/config"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/sample-controller/pkg/signals"
 )
 
 func main() {
+	stopCh := signals.SetupSignalHandler()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-stopCh
+		cancel()
+	}()
+
 	flag.Parse()
 	if flag.NArg() != 2 {
 		log.Fatalf("Usage: deploymentcopy sourcecontext destinationcontext")
@@ -47,7 +56,7 @@ func main() {
 	}
 	cl2 := cluster.New(dstCtx, cfg, cluster.Options{CacheOptions: cluster.CacheOptions{Namespace: ns}})
 
-	co, err := deploymentcopy.NewController(cl1, cl2)
+	co, err := deploymentcopy.NewController(ctx, cl1, cl2)
 	if err != nil {
 		log.Fatalf("creating deploymentcopy controller: %v", err)
 	}
@@ -55,7 +64,7 @@ func main() {
 	m := manager.New()
 	m.AddController(co)
 
-	if err := m.Start(signals.SetupSignalHandler()); err != nil {
+	if err := m.Start(stopCh); err != nil {
 		log.Fatalf("while or after starting manager: %v", err)
 	}
 }

@@ -20,45 +20,54 @@ Here is a minimal multicluster controller that watches pods in two clusters. On 
 package main
 
 import (
-  "log"
+	"context"
+	"log"
 
-  "admiralty.io/multicluster-controller/pkg/cluster"
-  "admiralty.io/multicluster-controller/pkg/controller"
-  "admiralty.io/multicluster-controller/pkg/manager"
-  "admiralty.io/multicluster-controller/pkg/reconcile"
-  "admiralty.io/multicluster-service-account/pkg/config"
-  "k8s.io/api/core/v1"
-  "k8s.io/sample-controller/pkg/signals"
+	"k8s.io/api/core/v1"
+	"k8s.io/sample-controller/pkg/signals"
+
+	"admiralty.io/multicluster-controller/pkg/cluster"
+	"admiralty.io/multicluster-controller/pkg/controller"
+	"admiralty.io/multicluster-controller/pkg/manager"
+	"admiralty.io/multicluster-controller/pkg/reconcile"
+	"admiralty.io/multicluster-service-account/pkg/config"
 )
 
 func main() {
-  co := controller.New(&reconciler{}, controller.Options{})
+	stopCh := signals.SetupSignalHandler()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-stopCh
+		cancel()
+	}()
 
-  contexts := [2]string{"cluster1", "cluster2"}
-  for _, cx := range contexts {
-    cfg, _, err := config.NamedConfigAndNamespace(ctx)
-    if err != nil {
-      log.Fatal(err)
-    }
-    cl := cluster.New(ctx, cfg, cluster.Options{})
-    if err := co.WatchResourceReconcileObject(cl, &v1.Pod{}, controller.WatchOptions{}); err != nil {
-      log.Fatal(err)
-    }
-  }
+	co := controller.New(&reconciler{}, controller.Options{})
 
-  m := manager.New()
-  m.AddController(co)
+	contexts := [2]string{"cluster1", "cluster2"}
+	for _, kubeCtx := range contexts {
+		cfg, _, err := config.NamedConfigAndNamespace(kubeCtx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cl := cluster.New(kubeCtx, cfg, cluster.Options{})
+		if err := co.WatchResourceReconcileObject(ctx, cl, &v1.Pod{}, controller.WatchOptions{}); err != nil {
+			log.Fatal(err)
+		}
+	}
 
-  if err := m.Start(signals.SetupSignalHandler()); err != nil {
-    log.Fatal(err)
-  }
+	m := manager.New()
+	m.AddController(co)
+
+	if err := m.Start(stopCh); err != nil {
+		log.Fatal(err)
+	}
 }
 
 type reconciler struct{}
 
 func (r *reconciler) Reconcile(req reconcile.Request) (reconcile.Result, error) {
-  log.Printf("%s / %s / %s", req.Context, req.Namespace, req.Name)
-  return reconcile.Result{}, nil
+	log.Printf("%s / %s / %s", req.Context, req.Namespace, req.Name)
+	return reconcile.Result{}, nil
 }
 ```
 

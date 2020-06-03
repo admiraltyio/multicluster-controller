@@ -1,14 +1,25 @@
+/*
+Copyright 2019 The Multicluster-Controller Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gc
 
 import (
 	"context"
 	"fmt"
 
-	"admiralty.io/multicluster-controller/pkg/cluster"
-	"admiralty.io/multicluster-controller/pkg/controller"
-	"admiralty.io/multicluster-controller/pkg/patterns"
-	"admiralty.io/multicluster-controller/pkg/reconcile"
-	"admiralty.io/multicluster-controller/pkg/reference"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,13 +28,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"admiralty.io/multicluster-controller/pkg/cluster"
+	"admiralty.io/multicluster-controller/pkg/controller"
+	"admiralty.io/multicluster-controller/pkg/patterns"
+	"admiralty.io/multicluster-controller/pkg/reconcile"
+	"admiralty.io/multicluster-controller/pkg/reference"
 )
 
 var (
 	LabelParentUID = "multicluster.admiralty.io/parent-uid"
 )
 
-func NewController(parentClusters []*cluster.Cluster, childClusters []*cluster.Cluster, o Options) (*controller.Controller, error) {
+func NewController(ctx context.Context, parentClusters []*cluster.Cluster, childClusters []*cluster.Cluster, o Options) (*controller.Controller, error) {
 	r := &reconciler{Options: o}
 
 	parentGVKs, _, err := parentClusters[0].GetScheme().ObjectKinds(r.ParentPrototype)
@@ -54,7 +71,7 @@ func NewController(parentClusters []*cluster.Cluster, childClusters []*cluster.C
 		}
 		r.parentClients[clu.Name] = cli
 
-		if err := co.WatchResourceReconcileObject(clu, r.ParentPrototype, r.ParentWatchOptions); err != nil {
+		if err := co.WatchResourceReconcileObject(ctx, clu, r.ParentPrototype, r.ParentWatchOptions); err != nil {
 			return nil, fmt.Errorf("setting up watch for %s: %v", r.parentResourceErrorString(clu.Name), err)
 		}
 	}
@@ -67,7 +84,7 @@ func NewController(parentClusters []*cluster.Cluster, childClusters []*cluster.C
 		}
 		r.childClients[clu.Name] = cli
 
-		if err := co.WatchResourceReconcileController(clu, r.ChildPrototype, controller.WatchOptions{Namespace: r.ChildNamespace}); err != nil {
+		if err := co.WatchResourceReconcileController(ctx, clu, r.ChildPrototype, controller.WatchOptions{Namespace: r.ChildNamespace}); err != nil {
 			return nil, fmt.Errorf("setting up watch for %s: %v", r.childResourceErrorString(clu.Name), err)
 		}
 	}

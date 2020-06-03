@@ -21,21 +21,21 @@ import (
 	"fmt"
 	"reflect"
 
-	"admiralty.io/multicluster-controller/pkg/reference"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"admiralty.io/multicluster-controller/examples/podghost/pkg/apis"
 	"admiralty.io/multicluster-controller/examples/podghost/pkg/apis/multicluster/v1alpha1"
 	"admiralty.io/multicluster-controller/pkg/cluster"
 	"admiralty.io/multicluster-controller/pkg/controller"
 	"admiralty.io/multicluster-controller/pkg/reconcile"
-	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"admiralty.io/multicluster-controller/pkg/reference"
 )
 
-func NewController(live *cluster.Cluster, ghost *cluster.Cluster, ghostNamespace string) (*controller.Controller, error) {
+func NewController(ctx context.Context, live *cluster.Cluster, ghost *cluster.Cluster, ghostNamespace string) (*controller.Controller, error) {
 	liveclient, err := live.GetDelegatingClient()
 	if err != nil {
 		return nil, fmt.Errorf("getting delegating client for live cluster: %v", err)
@@ -47,7 +47,7 @@ func NewController(live *cluster.Cluster, ghost *cluster.Cluster, ghostNamespace
 
 	co := controller.New(&reconciler{live: liveclient, ghost: ghostclient, ghostNamespace: ghostNamespace}, controller.Options{})
 
-	if err := co.WatchResourceReconcileObject(live, &v1.Pod{}, controller.WatchOptions{}); err != nil {
+	if err := co.WatchResourceReconcileObject(ctx, live, &v1.Pod{}, controller.WatchOptions{}); err != nil {
 		return nil, fmt.Errorf("setting up Pod watch in live cluster: %v", err)
 	}
 
@@ -58,7 +58,7 @@ func NewController(live *cluster.Cluster, ghost *cluster.Cluster, ghostNamespace
 	// (k8s.io/client-go/kubernetes/scheme.Scheme), yet multicluster-controller gives each cluster a scheme pointer.
 	// Therefore, if we needed a custom resource in multiple clusters, we would redundantly
 	// add it to each cluster's scheme, which points to the same underlying scheme.
-	if err := co.WatchResourceReconcileController(ghost, &v1alpha1.PodGhost{}, controller.WatchOptions{}); err != nil {
+	if err := co.WatchResourceReconcileController(ctx, ghost, &v1alpha1.PodGhost{}, controller.WatchOptions{}); err != nil {
 		return nil, fmt.Errorf("setting up PodGhost watch in ghost cluster: %v", err)
 	}
 
